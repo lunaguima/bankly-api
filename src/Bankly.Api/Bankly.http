@@ -1,0 +1,6 @@
+@Bankly_HostAddress = http://localhost:5136
+
+GET {{Bankly_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

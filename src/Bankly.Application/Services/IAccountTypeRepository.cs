@@ -1,0 +1,8 @@
+﻿using Bankly.Domain.Entities;
+
+namespace Bankly.Application.Services;
+
+public interface IAccountTypeRepository : IGenericRepository<AccountType>
+{
+  
+}
