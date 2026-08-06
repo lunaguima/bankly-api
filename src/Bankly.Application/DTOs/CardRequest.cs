@@ -9,7 +9,7 @@ public record CardRequest(
     [Required] string CardNumber,
     [Required] string Cvv,
     [Required] DateTime ExpirationDate,
-    [Required] bool IsActive 
+    [Required] bool IsActive
 )
 {
     public Card ToDomain() => new Card(
@@ -17,6 +17,6 @@ public record CardRequest(
         this.CardNumber,
         this.Cvv,
         this.ExpirationDate,
-        this.IsActive ? 'S' : 'N' 
+        this.IsActive ? 'Y' : 'N'
     );
 }

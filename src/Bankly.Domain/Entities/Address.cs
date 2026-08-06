@@ -12,23 +12,23 @@ public class Address : BaseEntity
 
     // Relacionamento
     public User User { get; private set; }
-    
+
     protected Address() { }
 
     public Address(Guid userId, string street, string zipCode, string city)
     {
-        if (string.IsNullOrWhiteSpace(street)) throw new Exception("A rua é obrigatória.");
+        if (string.IsNullOrWhiteSpace(street)) throw new DomainException("A rua é obrigatória.");
 
         UserId = userId;
         Street = street;
         ZipCode = zipCode;
         City = city;
     }
-    
+
     public void UpdateAddress(string newStreet, string newZipCode, string newCity)
     {
-        if (string.IsNullOrWhiteSpace(newStreet)) throw new Exception("A rua é obrigatória.");
-        
+        if (string.IsNullOrWhiteSpace(newStreet)) throw new DomainException("A rua é obrigatória.");
+
         Street = newStreet;
         ZipCode = newZipCode;
         City = newCity;

@@ -21,11 +21,19 @@ public record UserRequest(
     string password,
 
     [Required(ErrorMessage = "O endereço é obrigatório.")]
-    AddressRequest address 
+    UserAddressRequest address
 )
 {
-    public User ToDomain()
-    {
-        return new User(name, cpf, email, password);
-    }
+    public User ToDomain() => new User(name, cpf, email, password);
+
+    /// <summary>
+    /// Cria a entidade Address vinculada ao usuário. Deve ser chamado
+    /// depois que o User já foi instanciado (o Id é gerado no construtor).
+    /// </summary>
+    public Address ToAddressDomain(Guid userId) => new Address(
+        userId,
+        address.street,
+        address.zipCode,
+        address.city
+    );
 }

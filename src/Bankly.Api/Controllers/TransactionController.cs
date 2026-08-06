@@ -25,7 +25,12 @@ public class TransactionController : ControllerBase
         _transactionRepository = transactionRepository;
     }
 
+    /// <summary>
+    /// Lista todas as transações cadastradas.
+    /// </summary>
+    /// <returns>Lista de transações.</returns>
     [HttpGet]
+    [ProducesResponseType(typeof(IEnumerable<TransactionResponse>), StatusCodes.Status200OK)]
     public IActionResult GetAll()
     {
         var entities = _transactionRepository.GetAll();
@@ -33,25 +38,20 @@ public class TransactionController : ControllerBase
         return Ok(response);
     }
 
+    /// <summary>
+    /// Registra uma nova transação (depósito, saque ou transferência) em uma conta.
+    /// </summary>
+    /// <param name="request">Dados da transação a ser registrada.</param>
+    /// <returns>Transação criada.</returns>
     [HttpPost]
+    [ProducesResponseType(typeof(TransactionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public IActionResult Create([FromBody] TransactionRequest request)
     {
-        try
-        {
-            var transaction = request.ToDomain();
+        var transaction = request.ToDomain();
 
-            _transactionRepository.Add(transaction);
-            
-            return Ok(TransactionResponse.FromDomain(transaction));
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(ex.Message);
-        }
-        catch (Exception ex)
-        {
-            var erroReal = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
-            return StatusCode(500, $"Erro: {erroReal}");
-        }
+        _transactionRepository.Add(transaction);
+
+        return Ok(TransactionResponse.FromDomain(transaction));
     }
 }

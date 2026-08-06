@@ -11,20 +11,18 @@ public class AccountType : BaseEntity
     // Relacionamento
     public List<Account> Accounts { get; private set; } = [];
 
-   
     protected AccountType() { }
 
     public AccountType(string name)
     {
-        if (string.IsNullOrWhiteSpace(name)) throw new Exception("O nome do tipo de conta é obrigatório.");
-        
+        if (string.IsNullOrWhiteSpace(name)) throw new DomainException("O nome do tipo de conta é obrigatório.");
+
         Name = name;
     }
 
-  
     public void UpdateName(string newName)
     {
-        if (string.IsNullOrWhiteSpace(newName)) throw new Exception("O nome do tipo de conta é obrigatório.");
+        if (string.IsNullOrWhiteSpace(newName)) throw new DomainException("O nome do tipo de conta é obrigatório.");
         Name = newName;
     }
 }

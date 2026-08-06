@@ -17,11 +17,10 @@ public class Transaction : BaseEntity
 
     public Transaction(Guid accountId, decimal amount, TransactionTypeEnum type)
     {
-        if (amount <= 0) throw new Exception("O valor da transação deve ser maior que zero.");
+        if (amount <= 0) throw new DomainException("O valor da transação deve ser maior que zero.");
 
         AccountId = accountId;
         Amount = amount;
         Type = type;
-        
     }
 }

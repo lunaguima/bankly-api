@@ -22,8 +22,8 @@ public class Account : BaseEntity
 
     public Account(Guid userId, Guid accountTypeId, string branch, string accountNumber, decimal balance = 0)
     {
-        if (userId == Guid.Empty) throw new Exception("Id do usuário é obrigatório.");
-        if (balance < 0) throw new Exception("O saldo inicial não pode ser negativo.");
+        if (userId == Guid.Empty) throw new DomainException("Id do usuário é obrigatório.");
+        if (balance < 0) throw new DomainException("O saldo inicial não pode ser negativo.");
 
         UserId = userId;
         AccountTypeId = accountTypeId;
@@ -31,7 +31,7 @@ public class Account : BaseEntity
         AccountNumber = accountNumber;
         Balance = balance;
     }
-    
+
     public void UpdateDetails(string newBranch, Guid newAccountTypeId)
     {
         Branch = newBranch;

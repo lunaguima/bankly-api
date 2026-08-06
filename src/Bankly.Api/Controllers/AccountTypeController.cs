@@ -24,7 +24,12 @@ public class AccountTypeController : ControllerBase
         _accountTypeRepository = accountTypeRepository;
     }
 
+    /// <summary>
+    /// Lista todos os tipos de conta cadastrados.
+    /// </summary>
+    /// <returns>Lista de tipos de conta.</returns>
     [HttpGet]
+    [ProducesResponseType(typeof(IEnumerable<AccountTypeResponse>), StatusCodes.Status200OK)]
     public IActionResult GetAll()
     {
         var entities = _accountTypeRepository.GetAll();
@@ -32,63 +37,60 @@ public class AccountTypeController : ControllerBase
         return Ok(response);
     }
 
+    /// <summary>
+    /// Cria um novo tipo de conta.
+    /// </summary>
+    /// <param name="request">Nome do tipo de conta.</param>
+    /// <returns>Tipo de conta criado.</returns>
     [HttpPost]
+    [ProducesResponseType(typeof(AccountTypeResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public IActionResult Create([FromBody] AccountTypeRequest request)
     {
-        try
-        {
-            var entity = request.ToDomain();
-            _accountTypeRepository.Add(entity); 
-            
-            return Ok(AccountTypeResponse.FromDomain(entity)); 
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(ex.Message);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, "Erro interno: " + ex.Message);
-        }
+        var entity = request.ToDomain();
+        _accountTypeRepository.Add(entity);
+
+        return Ok(AccountTypeResponse.FromDomain(entity));
     }
 
+    /// <summary>
+    /// Atualiza o nome de um tipo de conta existente.
+    /// </summary>
+    /// <param name="id">Identificador do tipo de conta.</param>
+    /// <param name="request">Novo nome do tipo de conta.</param>
+    /// <returns>Tipo de conta atualizado.</returns>
     [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(AccountTypeResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public IActionResult Update(Guid id, [FromBody] AccountTypeRequest request)
     {
-        try
-        {
-            var entity = _accountTypeRepository.GetById(id);
-            if (entity == null) 
-                return NotFound();
-            
-            entity.UpdateName(request.name);
+        var entity = _accountTypeRepository.GetById(id);
+        if (entity == null)
+            return NotFound();
 
-            _accountTypeRepository.Update(entity); 
+        entity.UpdateName(request.name);
 
-            return Ok(AccountTypeResponse.FromDomain(entity));
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, "Erro interno ao atualizar: " + ex.Message);
-        }
+        _accountTypeRepository.Update(entity);
+
+        return Ok(AccountTypeResponse.FromDomain(entity));
     }
 
+    /// <summary>
+    /// Remove um tipo de conta existente.
+    /// </summary>
+    /// <param name="id">Identificador do tipo de conta.</param>
     [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult Delete(Guid id)
     {
-        try
-        {
-            var entity = _accountTypeRepository.GetById(id);
-            if (entity == null) 
-                return NotFound();
+        var entity = _accountTypeRepository.GetById(id);
+        if (entity == null)
+            return NotFound();
 
-            _accountTypeRepository.Delete(entity); 
+        _accountTypeRepository.Delete(entity);
 
-            return NoContent(); 
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, "Erro interno ao deletar: " + ex.Message);
-        }
+        return NoContent();
     }
 }

@@ -18,8 +18,8 @@ public class Card : BaseEntity
 
     public Card(Guid accountId, string cardNumber, string cvv, DateTime expirationDate, char isActive = 'Y')
     {
-        if (string.IsNullOrWhiteSpace(cardNumber)) throw new Exception("Número do cartão inválido.");
-        if (expirationDate < DateTime.Now) throw new Exception("Data de expiração não pode estar no passado.");
+        if (string.IsNullOrWhiteSpace(cardNumber)) throw new DomainException("Número do cartão inválido.");
+        if (expirationDate < DateTime.Now) throw new DomainException("Data de expiração não pode estar no passado.");
 
         AccountId = accountId;
         CardNumber = cardNumber;
@@ -27,7 +27,7 @@ public class Card : BaseEntity
         ExpirationDate = expirationDate;
         IsActive = isActive;
     }
-    
+
     public void ActivateCard() => IsActive = 'Y';
     public void DeactivateCard() => IsActive = 'N';
 }

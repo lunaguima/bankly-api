@@ -1,7 +1,11 @@
+using System.Reflection;
+using System.Text.Json.Serialization;
+using Bankly.Api.Exceptions;
 using Bankly.Infrastructure.Persistence;
 using Bankly.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Bankly.Application.Services;
+using Microsoft.OpenApi;
 using Oracle.EntityFrameworkCore.Infrastructure; // <-- Importante para o banco reconhecer a versão 19!
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,17 +30,55 @@ builder.Services.AddScoped<ICardRepository, CardRepository>();
 builder.Services.AddScoped<IAddressRepository, AddressRepository>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 
-builder.Services.AddControllers();
+// ---------------------------------------------------------
+// 🛑 Tratamento Global de Exceções
+// ---------------------------------------------------------
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
+
+// ---------------------------------------------------------
+// 📦 Controllers + Enums como texto (ex: "DEPOSITO" em vez de 0)
+// ---------------------------------------------------------
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
+
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+// ---------------------------------------------------------
+// 📘 Swagger completo (título, versão, descrição + comentários XML)
+// ---------------------------------------------------------
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Bankly API",
+        Version = "v1",
+        Description = "API REST do Bankly, sistema bancário desenvolvido para o Checkpoint 3 da FIAP. " +
+                       "Expõe operações de usuários, endereços, contas, tipos de conta, cartões e transações, " +
+                       "seguindo Clean Architecture e persistindo os dados em banco Oracle."
+    });
+
+    var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFilename);
+    if (File.Exists(xmlPath))
+    {
+        options.IncludeXmlComments(xmlPath);
+    }
+});
 
 var app = builder.Build();
+
+// Middleware de tratamento global de exceções (tem que vir antes dos demais)
+app.UseExceptionHandler(_ => { });
 
 // Configuração do Swagger para ambiente de desenvolvimento
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(); 
+    app.UseSwaggerUI();
 }
 
 app.UseHttpsRedirection();

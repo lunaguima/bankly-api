@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Bankly.Application.DTOs;
-using Bankly.Application.Services; 
+using Bankly.Application.Services;
 using System;
 using System.Linq;
 
@@ -21,7 +21,12 @@ public class AccountController : ControllerBase
         _accountRepository = accountRepository;
     }
 
+    /// <summary>
+    /// Lista todas as contas cadastradas.
+    /// </summary>
+    /// <returns>Lista de contas.</returns>
     [HttpGet]
+    [ProducesResponseType(typeof(IEnumerable<AccountResponse>), StatusCodes.Status200OK)]
     public IActionResult GetAll()
     {
         var accountsEntity = _accountRepository.GetAll();
@@ -29,67 +34,78 @@ public class AccountController : ControllerBase
         return Ok(response);
     }
 
+    /// <summary>
+    /// Busca uma conta específica pelo Id.
+    /// </summary>
+    /// <param name="id">Identificador da conta.</param>
+    /// <returns>Dados da conta encontrada.</returns>
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(AccountResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult GetById(Guid id)
     {
         var accountEntity = _accountRepository.GetById(id);
-        
-        if (accountEntity == null) 
+
+        if (accountEntity == null)
             return NotFound();
 
         return Ok(AccountResponse.FromDomain(accountEntity));
     }
 
+    /// <summary>
+    /// Cria uma nova conta bancária.
+    /// </summary>
+    /// <param name="request">Dados da conta a ser criada.</param>
+    /// <returns>Conta criada.</returns>
     [HttpPost]
+    [ProducesResponseType(typeof(AccountResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public IActionResult Create([FromBody] AccountRequest request)
     {
-        try
-        {
-            var accountEntity = request.ToDomain(); 
-            _accountRepository.Add(accountEntity); 
-            
-            return Ok(AccountResponse.FromDomain(accountEntity)); 
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(ex.Message);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, "Ocorreu um erro interno: " + ex.Message);
-        }
+        var accountEntity = request.ToDomain();
+        _accountRepository.Add(accountEntity);
+
+        return Ok(AccountResponse.FromDomain(accountEntity));
     }
 
+    /// <summary>
+    /// Atualiza a agência e o tipo de conta de uma conta existente.
+    /// </summary>
+    /// <param name="id">Identificador da conta.</param>
+    /// <param name="request">Novos dados da conta.</param>
+    /// <returns>Conta atualizada.</returns>
     [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(AccountResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public IActionResult Update(Guid id, [FromBody] AccountRequest request)
     {
-        try
-        {
-            var entity = _accountRepository.GetById(id);
-            if (entity == null) 
-                return NotFound();
-            
-            entity.UpdateDetails(request.branch, request.accountTypeId);
+        var entity = _accountRepository.GetById(id);
+        if (entity == null)
+            return NotFound();
 
-            _accountRepository.Update(entity); 
+        entity.UpdateDetails(request.branch, request.accountTypeId);
 
-            return Ok("Conta atualizada com sucesso!");
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, "Erro interno ao atualizar conta: " + ex.Message);
-        }
+        _accountRepository.Update(entity);
+
+        return Ok(AccountResponse.FromDomain(entity));
     }
-    
+
+    /// <summary>
+    /// Remove uma conta existente.
+    /// </summary>
+    /// <param name="id">Identificador da conta.</param>
     [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult Delete(Guid id)
     {
         var accountEntity = _accountRepository.GetById(id);
-        
-        if (accountEntity == null) 
-            return NotFound(); 
 
-        _accountRepository.Delete(accountEntity); 
-        return NoContent(); 
+        if (accountEntity == null)
+            return NotFound();
+
+        _accountRepository.Delete(accountEntity);
+        return NoContent();
     }
 }

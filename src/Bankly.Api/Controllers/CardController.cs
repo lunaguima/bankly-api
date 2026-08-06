@@ -24,7 +24,12 @@ public class CardController : ControllerBase
         _cardRepository = cardRepository;
     }
 
+    /// <summary>
+    /// Lista todos os cartões cadastrados.
+    /// </summary>
+    /// <returns>Lista de cartões.</returns>
     [HttpGet]
+    [ProducesResponseType(typeof(IEnumerable<CardResponse>), StatusCodes.Status200OK)]
     public IActionResult GetAll()
     {
         var cards = _cardRepository.GetAll();
@@ -32,48 +37,62 @@ public class CardController : ControllerBase
         return Ok(response);
     }
 
+    /// <summary>
+    /// Cria um novo cartão vinculado a uma conta existente.
+    /// </summary>
+    /// <param name="request">Dados do cartão a ser criado.</param>
+    /// <returns>Cartão criado.</returns>
     [HttpPost]
-    public IActionResult Create([FromBody] CardRequest request) 
+    [ProducesResponseType(typeof(CardResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public IActionResult Create([FromBody] CardRequest request)
     {
-        try
-        {
-            var entity = request.ToDomain();
-            _cardRepository.Add(entity);
-            
-            return Ok(CardResponse.FromDomain(entity));
-        }
-        catch (InvalidOperationException ex) 
-        {
-            return BadRequest(ex.Message);
-        }
+        var entity = request.ToDomain();
+        _cardRepository.Add(entity);
+
+        return Ok(CardResponse.FromDomain(entity));
     }
 
+    /// <summary>
+    /// Ativa ou bloqueia um cartão existente.
+    /// </summary>
+    /// <param name="id">Identificador do cartão.</param>
+    /// <param name="isActive">true para ativar, false para bloquear.</param>
+    /// <returns>Mensagem de confirmação.</returns>
     [HttpPut("{id:guid}/status")]
+    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult UpdateStatus(Guid id, [FromBody] bool isActive)
     {
         var entity = _cardRepository.GetById(id);
-        if (entity == null) 
+        if (entity == null)
             return NotFound();
-        
-        if(isActive)
+
+        if (isActive)
             entity.ActivateCard();
         else
             entity.DeactivateCard();
 
         _cardRepository.Update(entity);
-        
+
         return Ok(isActive ? "Cartão desbloqueado!" : "Cartão bloqueado com segurança!");
     }
 
+    /// <summary>
+    /// Remove um cartão existente.
+    /// </summary>
+    /// <param name="id">Identificador do cartão.</param>
     [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult Delete(Guid id)
     {
         var entity = _cardRepository.GetById(id);
-        if (entity == null) 
+        if (entity == null)
             return NotFound();
 
         _cardRepository.Delete(entity);
-        
+
         return NoContent();
     }
 }

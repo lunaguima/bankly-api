@@ -1,9 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{FBB39320-44FE-4079-8982-06709FFEE879}"
-	ProjectSection(SolutionItems) = preProject
-		src\README.md = src\README.md
-	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bankly.Api", "src\Bankly.Api\Bankly.Api.csproj", "{417EB330-5104-4BAF-99B8-23CBB9CC92EA}"
 EndProject
@@ -12,6 +9,11 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bankly.Application", "src\Bankly.Application\Bankly.Application.csproj", "{DE7CC547-6433-4D2C-82D1-57C9DA1DF722}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bankly.Infrastructure", "src\Bankly.Infrastructure\Bankly.Infrastructure.csproj", "{D0DE9155-4245-480F-9EF9-2340273B0632}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{1AFD9C36-8E23-49A7-B42E-D6DA111F59B0}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
