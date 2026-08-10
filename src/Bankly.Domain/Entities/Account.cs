@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Bankly.Domain.Commom;
+using Bankly.Domain.Enums;
 
 namespace Bankly.Domain.Entities;
 
@@ -36,5 +37,27 @@ public class Account : BaseEntity
     {
         Branch = newBranch;
         AccountTypeId = newAccountTypeId;
+    }
+
+    /// <summary>
+    /// Aplica uma transação (depósito, saque ou transferência de saída)
+    /// no saldo da conta, validando saldo suficiente quando necessário.
+    /// </summary>
+    public void ApplyTransaction(Transaction transaction)
+    {
+        switch (transaction.Type)
+        {
+            case TransactionTypeEnum.DEPOSITO:
+                Balance += transaction.Amount;
+                break;
+
+            case TransactionTypeEnum.SAQUE:
+            case TransactionTypeEnum.TRANSFERENCIA:
+                if (Balance < transaction.Amount)
+                    throw new DomainException("Saldo insuficiente para realizar a operação.");
+
+                Balance -= transaction.Amount;
+                break;
+        }
     }
 }

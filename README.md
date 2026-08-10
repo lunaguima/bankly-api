@@ -19,7 +19,7 @@ O domínio escolhido é o de **Simulação Bancária**, onde a aplicação possu
 
 As entidades modeladas no sistema foram:
 
-1. **User:** Onde ficam guardados os dados pessoais do cliente (Nome, CPF, Email).
+1. **User:** Onde ficam guardados os dados pessoais do cliente (Nome, CPF, Email, Senha).
 2. **Address:** Registra os dados da localização do usuário.
 3. **AccountType:** Define a categoria da conta bancária (Conta Corrente, Poupança, etc.).
 4. **Account:** Armazena os dados da conta bancária (Agência, Número e Saldo).
@@ -38,6 +38,17 @@ As entidades modeladas no sistema foram:
 
 ---
 
+# 💰 Regras de Negócio
+
+- **Senha do usuário:** nunca é armazenada em texto puro. Toda senha recebida na criação ou atualização do usuário é transformada em hash com **BCrypt** antes de ser persistida no banco.
+- **Saldo da conta:** é atualizado automaticamente a cada transação registrada.
+  - `DEPOSITO` soma o valor ao saldo da conta.
+  - `SAQUE` e `TRANSFERENCIA` subtraem o valor do saldo, desde que haja saldo suficiente.
+  - Caso o saldo seja insuficiente para um saque ou transferência, a operação é rejeitada com uma exceção de domínio, retornada como `400 Bad Request` via `ProblemDetails`.
+- **CPF e Email únicos:** o sistema impede o cadastro de um usuário com CPF já existente, lançando uma exceção de domínio tratada pelo `GlobalExceptionHandler`.
+
+---
+
 # 🗄️ Banco de Dados
 
 - **SGBD:** Oracle Database
@@ -53,23 +64,24 @@ A persistência desenvolvida no CP2 foi exposta através de uma **API REST**, ut
 ### Estrutura do Projeto
 
 - **Bankly.Api**
-   - Controllers
-   - Configuração do Swagger
-   - Tratamento global de exceções
+  - Controllers
+  - Configuração do Swagger
+  - Tratamento global de exceções
 
 - **Bankly.Application**
-   - DTOs de Request e Response
-   - Interfaces dos Repositórios
+  - DTOs de Request e Response
+  - Interfaces dos Repositórios
 
 - **Bankly.Domain**
-   - Entidades
-   - Exceções de domínio
-   - Regras de negócio
+  - Entidades
+  - Exceções de domínio
+  - Regras de negócio
+  - Hash de senha (BCrypt)
 
 - **Bankly.Infrastructure**
-   - DbContext
-   - Migrations
-   - Implementação dos repositórios utilizando Entity Framework Core
+  - DbContext
+  - Migrations
+  - Implementação dos repositórios utilizando Entity Framework Core
 
 Os Controllers **não acessam diretamente o DbContext**, mantendo toda a persistência encapsulada nos repositórios.
 
@@ -87,11 +99,11 @@ O Swagger possui:
 
 - Título e descrição personalizados
 - Versão da API
-- Comentários XML
+- Comentários XML em todas as actions
 - Documentação dos códigos HTTP
-   - 200 OK
-   - 400 Bad Request
-   - 404 Not Found
+  - 200 OK
+  - 400 Bad Request
+  - 404 Not Found
 
 ---
 
@@ -126,7 +138,7 @@ Os repositórios de:
 
 herdam do repositório genérico.
 
-Já o repositório de **User** implementa uma interface específica (`IUserRepository`), pois realiza o cadastro do usuário juntamente com seu endereço em uma única operação.
+Já o repositório de **User** implementa uma interface específica (`IUserRepository`), pois realiza o cadastro do usuário juntamente com seu endereço em uma única operação transacional (se qualquer etapa falhar, nada é gravado).
 
 ---
 
@@ -141,6 +153,17 @@ Foi implementado um **GlobalExceptionHandler**, utilizando `IExceptionHandler`, 
 | Demais exceções | 500 Internal Server Error |
 
 Para erros internos, a API retorna apenas uma mensagem genérica, sem expor detalhes internos da aplicação.
+
+Exemplo real de resposta ao tentar sacar um valor maior que o saldo disponível:
+
+```json
+{
+  "type": "https://httpstatuses.com/400",
+  "title": "Erro de validação",
+  "status": 400,
+  "detail": "Saldo insuficiente para realizar a operação."
+}
+```
 
 ---
 
@@ -214,6 +237,14 @@ Os endpoints disponíveis são:
 
 Todos podem ser testados diretamente pela interface do Swagger.
 
+### Fluxo sugerido de teste
+
+1. `POST /api/AccountType` — cria um tipo de conta.
+2. `POST /api/User` — cria um usuário com endereço.
+3. `POST /api/Account` — cria uma conta vinculada ao usuário e tipo de conta criados.
+4. `POST /api/Transaction` com `type: "DEPOSITO"` — deposita um valor e confere o saldo em `GET /api/Account/{id}`.
+5. `POST /api/Transaction` com `type: "SAQUE"` maior que o saldo disponível — confirma o retorno `400 Bad Request` com `ProblemDetails`.
+
 ---
 
 # ✅ Tecnologias Utilizadas
@@ -229,6 +260,7 @@ Todos podem ser testados diretamente pela interface do Swagger.
 - Repository Pattern
 - User Secrets
 - ProblemDetails (RFC 7807)
+- BCrypt.Net-Next (hash de senha)
 
 ---
 

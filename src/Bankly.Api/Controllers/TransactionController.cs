@@ -19,10 +19,14 @@ namespace Bankly.Api.Controllers;
 public class TransactionController : ControllerBase
 {
     private readonly ITransactionRepository _transactionRepository;
+    private readonly IAccountRepository _accountRepository;
 
-    public TransactionController(ITransactionRepository transactionRepository)
+    public TransactionController(
+        ITransactionRepository transactionRepository,
+        IAccountRepository accountRepository)
     {
         _transactionRepository = transactionRepository;
+        _accountRepository = accountRepository;
     }
 
     /// <summary>
@@ -39,17 +43,25 @@ public class TransactionController : ControllerBase
     }
 
     /// <summary>
-    /// Registra uma nova transação (depósito, saque ou transferência) em uma conta.
+    /// Registra uma nova transação (depósito, saque ou transferência) em uma conta,
+    /// atualizando o saldo correspondente.
     /// </summary>
     /// <param name="request">Dados da transação a ser registrada.</param>
     /// <returns>Transação criada.</returns>
     [HttpPost]
     [ProducesResponseType(typeof(TransactionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public IActionResult Create([FromBody] TransactionRequest request)
     {
+        var account = _accountRepository.GetById(request.accountId);
+        if (account == null)
+            return NotFound();
+
         var transaction = request.ToDomain();
 
+        account.ApplyTransaction(transaction);
+        _accountRepository.Update(account);
         _transactionRepository.Add(transaction);
 
         return Ok(TransactionResponse.FromDomain(transaction));

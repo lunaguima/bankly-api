@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Bankly.Application.DTOs;
 using Bankly.Application.Services;
+using Bankly.Domain.Entities;
+using Bankly.Domain.Helpers;
 using System;
 using System.Linq;
 
@@ -37,6 +39,23 @@ public class UserController : ControllerBase
     }
 
     /// <summary>
+    /// Busca um usuário específico pelo Id.
+    /// </summary>
+    /// <param name="id">Identificador do usuário.</param>
+    /// <returns>Dados do usuário encontrado.</returns>
+    [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public IActionResult GetById(Guid id)
+    {
+        var entity = _userRepository.GetById(id);
+        if (entity == null)
+            return NotFound();
+
+        return Ok(UserResponse.FromDomain(entity));
+    }
+
+    /// <summary>
     /// Cria um novo usuário junto com o endereço informado.
     /// </summary>
     /// <param name="request">Dados do usuário e do endereço a serem criados.</param>
@@ -46,7 +65,9 @@ public class UserController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public IActionResult Create([FromBody] UserRequest request)
     {
-        var userEntity = request.ToDomain();
+        var hashedPassword = HashHelper.Hash(request.password);
+
+        var userEntity = new User(request.name, request.cpf, request.email, hashedPassword);
         var addressEntity = request.ToAddressDomain(userEntity.Id);
 
         _userRepository.Create(userEntity, addressEntity);
@@ -70,7 +91,8 @@ public class UserController : ControllerBase
         if (entity == null)
             return NotFound();
 
-        entity.UpdateProfile(request.name, request.email, request.password);
+        var hashedPassword = HashHelper.Hash(request.password);
+        entity.UpdateProfile(request.name, request.email, hashedPassword);
 
         _userRepository.Update(entity);
 

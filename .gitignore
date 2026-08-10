@@ -1,5 +1,22 @@
+# Build
 bin/
 obj/
 /packages/
+
+# Rider / JetBrains
 riderModule.iml
 /_ReSharper.Caches/
+.idea/
+
+# User Secrets (nunca deve subir credencial)
+*.user
+
+# Publish
+publish/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
