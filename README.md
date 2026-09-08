@@ -1,4 +1,4 @@
-﻿# 🏦 Bankly - Sistema de Simulação Bancária (Checkpoint 3)
+﻿# 🏦 Bankly - Sistema de Simulação Bancária (Checkpoint 4)
 
 ## 👤 Integrante
 Esse trabalho foi feito individualmente.
@@ -67,10 +67,12 @@ A persistência desenvolvida no CP2 foi exposta através de uma **API REST**, ut
   - Controllers
   - Configuração do Swagger
   - Tratamento global de exceções
+  - Health checks (`/health`)
 
 - **Bankly.Application**
   - DTOs de Request e Response
-  - Interfaces dos Repositórios
+  - Interfaces dos Repositórios (pasta `Repositories/`)
+  - `TransactionService` (regra de aplicação da criação de transação)
 
 - **Bankly.Domain**
   - Entidades
@@ -83,6 +85,12 @@ A persistência desenvolvida no CP2 foi exposta através de uma **API REST**, ut
   - Migrations
   - Implementação dos repositórios utilizando Entity Framework Core
 
+- **Bankly.Domain.Tests**
+  - Testes unitários das regras de negócio do Domain, sem mock
+
+- **Bankly.Application.Tests**
+  - Testes unitários do `TransactionService`, com mock dos repositórios (Moq)
+
 Os Controllers **não acessam diretamente o DbContext**, mantendo toda a persistência encapsulada nos repositórios.
 
 ---
@@ -90,180 +98,3 @@ Os Controllers **não acessam diretamente o DbContext**, mantendo toda a persist
 # 📘 Swagger
 
 A documentação da API está disponível em ambiente de desenvolvimento:
-
-```
-http://localhost:5136/swagger
-```
-
-O Swagger possui:
-
-- Título e descrição personalizados
-- Versão da API
-- Comentários XML em todas as actions
-- Documentação dos códigos HTTP
-  - 200 OK
-  - 400 Bad Request
-  - 404 Not Found
-
----
-
-# 🗂️ Repositório Genérico
-
-Foi implementado um repositório genérico composto por:
-
-- `IGenericRepository<T>`
-- `GenericRepository<T>`
-
-Disponibilizando os métodos:
-
-- GetAll()
-- GetById()
-- Add()
-- Update()
-- Delete()
-
-O serviço foi registrado na Injeção de Dependência através de:
-
-```csharp
-builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
-```
-
-Os repositórios de:
-
-- Account
-- AccountType
-- Address
-- Card
-- Transaction
-
-herdam do repositório genérico.
-
-Já o repositório de **User** implementa uma interface específica (`IUserRepository`), pois realiza o cadastro do usuário juntamente com seu endereço em uma única operação transacional (se qualquer etapa falhar, nada é gravado).
-
----
-
-# 🛑 Tratamento Global de Exceções
-
-Foi implementado um **GlobalExceptionHandler**, utilizando `IExceptionHandler`, retornando respostas no padrão **ProblemDetails (RFC 7807)**.
-
-| Exceção | HTTP Status |
-|----------|-------------|
-| DomainException | 400 Bad Request |
-| KeyNotFoundException | 404 Not Found |
-| Demais exceções | 500 Internal Server Error |
-
-Para erros internos, a API retorna apenas uma mensagem genérica, sem expor detalhes internos da aplicação.
-
-Exemplo real de resposta ao tentar sacar um valor maior que o saldo disponível:
-
-```json
-{
-  "type": "https://httpstatuses.com/400",
-  "title": "Erro de validação",
-  "status": 400,
-  "detail": "Saldo insuficiente para realizar a operação."
-}
-```
-
----
-
-# 🚀 Como Executar o Projeto
-
-## 1. Clonar o Repositório
-
-```bash
-git clone <url-do-repositorio>
-```
-
----
-
-## 2. Configurar o User Secrets
-
-Por segurança, a Connection String **não está presente no appsettings.json**.
-
-Dentro da pasta **Bankly.Api**, execute:
-
-```bash
-cd src/Bankly.Api
-
-dotnet user-secrets init
-
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=oracle.fiap.com.br)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=orcl)));User Id=SEU_RM;Password=SUA_SENHA;"
-```
-
-Substitua:
-
-- `SEU_RM`
-- `SUA_SENHA`
-
-pelas suas credenciais do Oracle.
-
----
-
-## 3. Aplicar as Migrations
-
-Na raiz do projeto execute:
-
-```bash
-dotnet ef database update --project src/Bankly.Infrastructure --startup-project src/Bankly.Api
-```
-
----
-
-## 4. Executar a API
-
-```bash
-dotnet run --project src/Bankly.Api
-```
-
----
-
-## 5. Testar a API
-
-Abra o navegador e acesse:
-
-```
-http://localhost:5136/swagger
-```
-
-Os endpoints disponíveis são:
-
-- Users
-- Addresses
-- AccountTypes
-- Accounts
-- Cards
-- Transactions
-
-Todos podem ser testados diretamente pela interface do Swagger.
-
-### Fluxo sugerido de teste
-
-1. `POST /api/AccountType` — cria um tipo de conta.
-2. `POST /api/User` — cria um usuário com endereço.
-3. `POST /api/Account` — cria uma conta vinculada ao usuário e tipo de conta criados.
-4. `POST /api/Transaction` com `type: "DEPOSITO"` — deposita um valor e confere o saldo em `GET /api/Account/{id}`.
-5. `POST /api/Transaction` com `type: "SAQUE"` maior que o saldo disponível — confirma o retorno `400 Bad Request` com `ProblemDetails`.
-
----
-
-# ✅ Tecnologias Utilizadas
-
-- .NET 10
-- ASP.NET Core Web API
-- Entity Framework Core
-- Oracle Database
-- Oracle SQL Developer
-- Swagger / OpenAPI
-- Dependency Injection
-- Clean Architecture
-- Repository Pattern
-- User Secrets
-- ProblemDetails (RFC 7807)
-- BCrypt.Net-Next (hash de senha)
-
----
-
-# 📌 Observações
-
-Este projeto foi desenvolvido como parte do **Checkpoint 3** da disciplina de **Advanced Business Development with .NET**, seguindo os requisitos propostos para a persistência dos dados, API REST, documentação via Swagger, tratamento global de exceções e boas práticas de arquitetura.

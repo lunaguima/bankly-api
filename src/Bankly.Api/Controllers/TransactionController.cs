@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Bankly.Application.DTOs;
 using Bankly.Application.Services;
-using Bankly.Domain.Entities;
 using System;
 using System.Linq;
 
@@ -19,14 +18,17 @@ namespace Bankly.Api.Controllers;
 public class TransactionController : ControllerBase
 {
     private readonly ITransactionRepository _transactionRepository;
-    private readonly IAccountRepository _accountRepository;
+    private readonly ITransactionService _transactionService;
+    private readonly ILogger<TransactionController> _logger;
 
     public TransactionController(
         ITransactionRepository transactionRepository,
-        IAccountRepository accountRepository)
+        ITransactionService transactionService,
+        ILogger<TransactionController> logger)
     {
         _transactionRepository = transactionRepository;
-        _accountRepository = accountRepository;
+        _transactionService = transactionService;
+        _logger = logger;
     }
 
     /// <summary>
@@ -54,15 +56,17 @@ public class TransactionController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public IActionResult Create([FromBody] TransactionRequest request)
     {
-        var account = _accountRepository.GetById(request.accountId);
-        if (account == null)
-            return NotFound();
+        var traceId = HttpContext.TraceIdentifier;
 
-        var transaction = request.ToDomain();
+        _logger.LogInformation(
+            "Iniciando criação de transação. TraceId: {TraceId}, AccountId: {AccountId}, Amount: {Amount}, Type: {Type}",
+            traceId, request.accountId, request.amount, request.type);
 
-        account.ApplyTransaction(transaction);
-        _accountRepository.Update(account);
-        _transactionRepository.Add(transaction);
+        var transaction = _transactionService.Create(request);
+
+        _logger.LogInformation(
+            "Transação criada com sucesso. TraceId: {TraceId}, TransactionId: {TransactionId}",
+            traceId, transaction.Id);
 
         return Ok(TransactionResponse.FromDomain(transaction));
     }

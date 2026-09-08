@@ -12,10 +12,12 @@ namespace Bankly.Api.Exceptions;
 public class GlobalExceptionHandler : IExceptionHandler
 {
     private readonly ILogger<GlobalExceptionHandler> _logger;
+    private readonly IWebHostEnvironment _environment;
 
-    public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger)
+    public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger, IWebHostEnvironment environment)
     {
         _logger = logger;
+        _environment = environment;
     }
 
     public async ValueTask<bool> TryHandleAsync(
@@ -23,7 +25,11 @@ public class GlobalExceptionHandler : IExceptionHandler
         Exception exception,
         CancellationToken cancellationToken)
     {
-        _logger.LogError(exception, "Erro não tratado: {Message}", exception.Message);
+        var traceId = httpContext.TraceIdentifier;
+
+        _logger.LogError(exception,
+            "Erro não tratado. TraceId: {TraceId}, Path: {Path}, Mensagem: {Message}",
+            traceId, httpContext.Request.Path, exception.Message);
 
         var (statusCode, title) = exception switch
         {
@@ -41,6 +47,11 @@ public class GlobalExceptionHandler : IExceptionHandler
                 : exception.Message,
             Type = $"https://httpstatuses.com/{statusCode}"
         };
+
+        if (_environment.IsDevelopment())
+        {
+            problemDetails.Extensions["traceId"] = traceId;
+        }
 
         httpContext.Response.StatusCode = statusCode;
         httpContext.Response.ContentType = "application/problem+json";

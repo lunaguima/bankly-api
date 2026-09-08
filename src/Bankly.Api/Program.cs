@@ -1,10 +1,13 @@
 using System.Reflection;
 using System.Text.Json.Serialization;
 using Bankly.Api.Exceptions;
+using Bankly.Api.HealthChecks;
 using Bankly.Infrastructure.Persistence;
 using Bankly.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Bankly.Application.Services;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.OpenApi;
 using Oracle.EntityFrameworkCore.Infrastructure; // <-- Importante para o banco reconhecer a versão 19!
 
@@ -29,12 +32,18 @@ builder.Services.AddScoped<IAccountTypeRepository, AccountTypeRepository>();
 builder.Services.AddScoped<ICardRepository, CardRepository>();
 builder.Services.AddScoped<IAddressRepository, AddressRepository>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
+builder.Services.AddScoped<ITransactionService, TransactionService>();
 
 // ---------------------------------------------------------
 // 🛑 Tratamento Global de Exceções
 // ---------------------------------------------------------
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
+
+// ---------------------------------------------------------
+// 🩺 Health Checks (CP4)
+// ---------------------------------------------------------
+builder.Services.AddBanklyHealthChecks();
 
 // ---------------------------------------------------------
 // 📦 Controllers + Enums como texto (ex: "DEPOSITO" em vez de 0)
@@ -84,5 +93,19 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
+
+// ---------------------------------------------------------
+// 🩺 Endpoint /health (CP4)
+// ---------------------------------------------------------
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = HealthCheckResponseWriter.WriteResponse,
+    ResultStatusCodes =
+    {
+        [HealthStatus.Healthy] = StatusCodes.Status200OK,
+        [HealthStatus.Degraded] = StatusCodes.Status200OK,
+        [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable
+    }
+}).ExcludeFromDescription();
 
 app.Run();
