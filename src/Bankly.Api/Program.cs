@@ -9,21 +9,23 @@ using Bankly.Application.Services;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.OpenApi;
-using Oracle.EntityFrameworkCore.Infrastructure; // <-- Importante para o banco reconhecer a versão 19!
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ---------------------------------------------------------
-// 🚀 Configuração Mágica para o Oracle da FIAP (Versão 19)
+// Configuração do Oracle da FIAP (Versão 19)
 // ---------------------------------------------------------
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' não foi encontrada em appsettings.json.");
+
 builder.Services.AddDbContext<BanklyContext>(options =>
     options.UseOracle(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
+        connectionString,
         oracleOptions => oracleOptions.UseOracleSQLCompatibility(OracleSQLCompatibility.DatabaseVersion19)
     ));
 
 // ---------------------------------------------------------
-// 💉 Injeção de Dependências (Clean Architecture)
+// Injeção de Dependências (Clean Architecture)
 // ---------------------------------------------------------
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -35,18 +37,18 @@ builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 
 // ---------------------------------------------------------
-// 🛑 Tratamento Global de Exceções
+// Tratamento Global de Exceções
 // ---------------------------------------------------------
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
 // ---------------------------------------------------------
-// 🩺 Health Checks (CP4)
+// Health Checks (CP4)
 // ---------------------------------------------------------
 builder.Services.AddBanklyHealthChecks();
 
 // ---------------------------------------------------------
-// 📦 Controllers + Enums como texto (ex: "DEPOSITO" em vez de 0)
+// Controllers + Enums como texto (ex: "DEPOSITO" em vez de 0)
 // ---------------------------------------------------------
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -57,15 +59,15 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 
 // ---------------------------------------------------------
-// 📘 Swagger completo (título, versão, descrição + comentários XML)
+// Swagger completo (título, versão, descrição + comentários XML)
 // ---------------------------------------------------------
-builder.Services.AddSwaggerGen(options =>
+builder.Services.AddSwaggerGen(options =>                                                                               
 {
     options.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "Bankly API",
         Version = "v1",
-        Description = "API REST do Bankly, sistema bancário desenvolvido para o Checkpoint 3 da FIAP. " +
+        Description = "API REST do Bankly, sistema bancário desenvolvido para o Checkpoint 4 da FIAP. " +
                        "Expõe operações de usuários, endereços, contas, tipos de conta, cartões e transações, " +
                        "seguindo Clean Architecture e persistindo os dados em banco Oracle."
     });
@@ -81,7 +83,7 @@ builder.Services.AddSwaggerGen(options =>
 var app = builder.Build();
 
 // Middleware de tratamento global de exceções (tem que vir antes dos demais)
-app.UseExceptionHandler(_ => { });
+app.UseExceptionHandler();
 
 // Configuração do Swagger para ambiente de desenvolvimento
 if (app.Environment.IsDevelopment())
@@ -95,7 +97,7 @@ app.UseAuthorization();
 app.MapControllers();
 
 // ---------------------------------------------------------
-// 🩺 Endpoint /health (CP4)
+// Endpoint /health (CP4)
 // ---------------------------------------------------------
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
