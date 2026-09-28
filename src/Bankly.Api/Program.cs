@@ -1,14 +1,21 @@
 using System.Reflection;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
+using Asp.Versioning;
+using Asp.Versioning.ApiExplorer;
+using Bankly.Api;
 using Bankly.Api.Exceptions;
 using Bankly.Api.HealthChecks;
+using Bankly.Application.Services;
 using Bankly.Infrastructure.Persistence;
 using Bankly.Infrastructure.Repositories;
-using Microsoft.EntityFrameworkCore;
-using Bankly.Application.Services;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.OpenApi;
+using Microsoft.Extensions.Options;
+using Swashbuckle.AspNetCore.SwaggerGen;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -56,22 +63,65 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
-builder.Services.AddEndpointsApiExplorer();
+// ---------------------------------------------------------
+// Versionamento de API (CP5)
+// ---------------------------------------------------------
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(2, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+    options.ApiVersionReader = ApiVersionReader.Combine(
+        new QueryStringApiVersionReader("api-version"),
+        new HeaderApiVersionReader("X-Api-Version"));
+})
+.AddMvc()
+.AddApiExplorer(options =>
+{
+    options.GroupNameFormat = "'v'VVVV";
+    options.SubstituteApiVersionInUrl = true;
+});
 
 // ---------------------------------------------------------
-// Swagger completo (título, versão, descrição + comentários XML)
+// Rate limit (CP5) - fixed window: 10 requisições por minuto
 // ---------------------------------------------------------
-builder.Services.AddSwaggerGen(options =>                                                                               
+builder.Services.AddRateLimiter(options =>
 {
-    options.SwaggerDoc("v1", new OpenApiInfo
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.AddFixedWindowLimiter("escrita", limiter =>
     {
-        Title = "Bankly API",
-        Version = "v1",
-        Description = "API REST do Bankly, sistema bancário desenvolvido para o Checkpoint 4 da FIAP. " +
-                       "Expõe operações de usuários, endereços, contas, tipos de conta, cartões e transações, " +
-                       "seguindo Clean Architecture e persistindo os dados em banco Oracle."
+        limiter.PermitLimit = 10;
+        limiter.Window = TimeSpan.FromMinutes(1);
+        limiter.QueueLimit = 0;
     });
 
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        var retryAfterSeconds = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter)
+            ? (int)Math.Ceiling(retryAfter.TotalSeconds)
+            : 60;
+
+        context.HttpContext.Response.Headers.RetryAfter = retryAfterSeconds.ToString();
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+
+        await context.HttpContext.Response.WriteAsJsonAsync(new ProblemDetails
+        {
+            Status = StatusCodes.Status429TooManyRequests,
+            Title = "Muitas requisições",
+            Detail = $"Limite de 10 requisições por minuto excedido. Tente novamente em {retryAfterSeconds} segundos.",
+            Type = "https://httpstatuses.com/429"
+        }, cancellationToken);
+    };
+});
+
+// ---------------------------------------------------------
+// Swagger: um documento por versão + comentários XML
+// ---------------------------------------------------------
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddTransient<IConfigureOptions<SwaggerGenOptions>, ConfigureSwaggerOptions>();
+builder.Services.AddSwaggerGen(options =>
+{
     var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFilename);
     if (File.Exists(xmlPath))
@@ -89,15 +139,28 @@ app.UseExceptionHandler();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(options =>
+    {
+        var provider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
+        foreach (var description in provider.ApiVersionDescriptions.Reverse())
+        {
+            options.SwaggerEndpoint(
+                $"/swagger/{description.GroupName}/swagger.json",
+                description.GroupName.ToUpperInvariant());
+        }
+    });
 }
 
 app.UseHttpsRedirection();
+
+// Depois do UseExceptionHandler e antes do MapControllers
+app.UseRateLimiter();
+
 app.UseAuthorization();
 app.MapControllers();
 
 // ---------------------------------------------------------
-// Endpoint /health (CP4)
+// Endpoint /health (CP4) - fora do rate limit
 // ---------------------------------------------------------
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
@@ -108,6 +171,6 @@ app.MapHealthChecks("/health", new HealthCheckOptions
         [HealthStatus.Degraded] = StatusCodes.Status200OK,
         [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable
     }
-}).ExcludeFromDescription();
+}).ExcludeFromDescription().DisableRateLimiting();
 
 app.Run();
