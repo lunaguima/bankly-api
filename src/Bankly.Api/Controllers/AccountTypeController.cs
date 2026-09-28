@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Asp.Versioning;
+using Microsoft.AspNetCore.Mvc;
 using Bankly.Application.DTOs;
 using Bankly.Application.Services;
 using System;
@@ -14,6 +15,7 @@ namespace Bankly.Api.Controllers;
 /// URL: /api/accounttype
 /// </remarks>
 [Route("api/[controller]")]
+[ApiVersionNeutral]
 [ApiController]
 public class AccountTypeController : ControllerBase
 {

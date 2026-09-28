@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Asp.Versioning;
+using Microsoft.AspNetCore.Mvc;
 using Bankly.Application.DTOs;
 using Bankly.Application.Services;
 using System;
@@ -11,6 +12,7 @@ namespace Bankly.Api.Controllers;
 /// Expõe endpoints para criar, listar, buscar, atualizar e remover contas.
 /// </summary>
 [Route("api/[controller]")]
+[ApiVersionNeutral]
 [ApiController]
 public class AccountController : ControllerBase
 {

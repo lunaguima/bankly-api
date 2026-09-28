@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Asp.Versioning;
+using Microsoft.AspNetCore.Mvc;
 using Bankly.Application.DTOs;
 using Bankly.Application.Services;
 using Bankly.Domain.Entities;
@@ -15,6 +16,7 @@ namespace Bankly.Api.Controllers;
 /// URL: /api/user
 /// </remarks>
 [Route("api/[controller]")]
+[ApiVersionNeutral]
 [ApiController]
 public class UserController : ControllerBase
 {
