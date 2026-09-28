@@ -61,4 +61,16 @@ public class AccountTests
         // Act & Assert
         Assert.Throws<DomainException>(() => account.ApplyTransaction(saque));
     }
+
+    [Fact]
+    public void ApplyTransaction_TipoInvalido_DeveLancarDomainExceptionESemAlterarSaldo()
+    {
+        // Arrange
+        var account = new Account(Guid.NewGuid(), Guid.NewGuid(), "0001", "12345-6", 100m);
+        var invalida = new Transaction(account.Id, 10m, (TransactionTypeEnum)99);
+
+        // Act & Assert
+        Assert.Throws<DomainException>(() => account.ApplyTransaction(invalida));
+        Assert.Equal(100m, account.Balance);
+    }
 }
