@@ -90,10 +90,10 @@ A solução segue os preceitos da **Clean Architecture**, dividida nos seguintes
 
 ```json
    {
-     "ConnectionStrings": {
-       "DefaultConnection": "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=oracle.fiap.com.br)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=orcl)));User Id=SEU_RM;Password=SUA_SENHA;"
-     }
-   }
+  "ConnectionStrings": {
+    "DefaultConnection": "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=oracle.fiap.com.br)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=orcl)));User Id=SEU_RM;Password=SUA_SENHA;"
+  }
+}
 ```
 
 Alternativa sem escrever a senha em arquivo do repositório (User Secrets):
@@ -114,11 +114,11 @@ Alternativa sem escrever a senha em arquivo do repositório (User Secrets):
 
 | Recurso | URL |
 | --- | --- |
-| Swagger UI | `https://localhost:7041/swagger` (ou `http://localhost:5136/swagger`) |
-| Health Check | `https://localhost:7041/health` |
-| **Listagem de transações v1 (deprecada)** | `https://localhost:7041/api/transaction?api-version=1.0` |
-| **Listagem de transações v2 (paginada)** | `https://localhost:7041/api/transaction?api-version=2.0` |
-| Listagem sem versão (cai na v2) | `https://localhost:7041/api/transaction` |
+| Swagger UI | `https://localhost:7186/swagger` (ou `http://localhost:5136/swagger`) |
+| Health Check | `https://localhost:7186/health` |
+| **Listagem de transações v1 (deprecada)** | `https://localhost:7186/api/transaction?api-version=1.0` |
+| **Listagem de transações v2 (paginada)** | `https://localhost:7186/api/transaction?api-version=2.0` |
+| Listagem sem versão (cai na v2) | `https://localhost:7186/api/transaction` |
 
 ---
 
