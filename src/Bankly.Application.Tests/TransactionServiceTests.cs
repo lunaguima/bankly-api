@@ -1,5 +1,5 @@
-﻿using Bankly.Application.DTOs;
-using Bankly.Application.Services;
+﻿using Bankly.Application.Services;
+using Bankly.Domain.Commom;
 using Bankly.Domain.Entities;
 using Bankly.Domain.Enums;
 using Moq;
@@ -7,47 +7,101 @@ using Xunit;
 
 namespace Bankly.Application.Tests;
 
-public class TransactionServiceTests
+public class TransactionServicePagingTests
 {
-    private readonly Mock<ITransactionRepository> _transactionRepositoryMock;
-    private readonly Mock<IAccountRepository> _accountRepositoryMock;
-    private readonly TransactionService _sut;
-
-    public TransactionServiceTests()
+    private sealed class FakeTransactionRepository : ITransactionRepository
     {
-        _transactionRepositoryMock = new Mock<ITransactionRepository>();
-        _accountRepositoryMock = new Mock<IAccountRepository>();
-        _sut = new TransactionService(_transactionRepositoryMock.Object, _accountRepositoryMock.Object);
+        private readonly List<Transaction> _data;
+
+        public int GetPagedCalls { get; private set; }
+
+        public FakeTransactionRepository(int total)
+        {
+            _data = Enumerable.Range(0, total)
+                .Select(_ => new Transaction(Guid.NewGuid(), 10m, TransactionTypeEnum.DEPOSITO))
+                .ToList();
+        }
+
+        public (IReadOnlyList<Transaction> Items, int TotalItems) GetPaged(int page, int pageSize)
+        {
+            GetPagedCalls++;
+            var items = _data.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+            return (items, _data.Count);
+        }
+
+        public Transaction? GetById(Guid id) => _data.FirstOrDefault(t => t.Id == id);
+        public IEnumerable<Transaction> GetAll() => _data;
+        public void Add(Transaction entity) => _data.Add(entity);
+        public void Update(Transaction entity) { }
+        public void Delete(Transaction entity) => _data.Remove(entity);
+        public void SaveChanges() { }
     }
 
-    [Fact]
-    public void Create_ContaInexistente_DeveLancarExcecaoENaoPersistir()
+    private static (TransactionService Service, FakeTransactionRepository Repo) CreateSut(int total)
+    {
+        var repo = new FakeTransactionRepository(total);
+        var accountRepo = new Mock<IAccountRepository>().Object;
+        return (new TransactionService(repo, accountRepo), repo);
+    }
+
+    [Theory]
+    [InlineData(0, 20)]
+    [InlineData(-1, 20)]
+    [InlineData(1, 0)]
+    [InlineData(1, -5)]
+    [InlineData(1, 101)]
+    [InlineData(1, 9999)]
+    public void GetPaged_ParametrosInvalidos_DeveLancarDomainExceptionENaoConsultarRepositorio(int page, int pageSize)
     {
         // Arrange
-        var request = new TransactionRequest(Guid.NewGuid(), 100m, TransactionTypeEnum.DEPOSITO);
-        _accountRepositoryMock.Setup(r => r.GetById(request.accountId)).Returns((Account)null);
+        var (service, repo) = CreateSut(10);
 
         // Act & Assert
-        Assert.Throws<KeyNotFoundException>(() => _sut.Create(request));
+        Assert.Throws<DomainException>(() => service.GetPaged(page, pageSize));
+        Assert.Equal(0, repo.GetPagedCalls);
+    }
 
-        _transactionRepositoryMock.Verify(r => r.Add(It.IsAny<Transaction>()), Times.Never);
-        _accountRepositoryMock.Verify(r => r.Update(It.IsAny<Account>()), Times.Never);
+    [Theory]
+    [InlineData(1, 1)]
+    [InlineData(1, 20)]
+    [InlineData(2, 5)]
+    [InlineData(1, 100)]
+    [InlineData(100, 10)]
+    public void GetPaged_ParametrosValidos_NaoDeveLancarExcecao(int page, int pageSize)
+    {
+        // Arrange
+        var (service, _) = CreateSut(50);
+
+        // Act
+        var response = service.GetPaged(page, pageSize);
+
+        // Assert
+        Assert.Equal(page, response.page);
+        Assert.Equal(pageSize, response.pageSize);
+        Assert.Equal(50, response.totalItems);
     }
 
     [Fact]
-    public void Create_ContaExistente_DevePersistirUmaVez()
+    public void GetPaged_137Itens_PageSize20_DeveCalcularTotaisEFlagsCorretamente()
     {
         // Arrange
-        var account = new Account(Guid.NewGuid(), Guid.NewGuid(), "0001", "12345-6", 200m);
-        var request = new TransactionRequest(account.Id, 50m, TransactionTypeEnum.DEPOSITO);
-        _accountRepositoryMock.Setup(r => r.GetById(account.Id)).Returns(account);
+        var (service, _) = CreateSut(137);
 
         // Act
-        var result = _sut.Create(request);
+        var primeira = service.GetPaged(1, 20);
+        var ultima = service.GetPaged(7, 20);
+        var alemDoTotal = service.GetPaged(8, 20);
 
         // Assert
-        Assert.Equal(250m, account.Balance);
-        _transactionRepositoryMock.Verify(r => r.Add(It.IsAny<Transaction>()), Times.Once);
-        _accountRepositoryMock.Verify(r => r.Update(account), Times.Once);
+        Assert.Equal(7, primeira.totalPages);
+        Assert.Equal(20, primeira.items.Count);
+        Assert.False(primeira.hasPrevious);
+        Assert.True(primeira.hasNext);
+
+        Assert.Equal(17, ultima.items.Count);
+        Assert.True(ultima.hasPrevious);
+        Assert.False(ultima.hasNext);
+
+        Assert.Empty(alemDoTotal.items);
     }
 }
