@@ -1,4 +1,4 @@
-﻿# 🏦 Bankly - Sistema de Simulação Bancária (Checkpoint 4)
+﻿# 🏦 Bankly - Sistema de Simulação Bancária (Checkpoint 5)
 
 ## 👤 Integrante
 
@@ -43,8 +43,9 @@ O domínio escolhido é o de **Simulação Bancária**, cujo objetivo é estrutu
 
 - **Hash seguro de senhas:** Nenhuma credencial é persistida em texto puro. Toda senha recebida é criptografada utilizando o algoritmo **BCrypt** (`HashHelper`) antes da gravação.
 - **Invariantes de saldo:**
-  - `DEPOSITO`: Incrementa o saldo da conta com o valor informado.
-  - `SAQUE` e `TRANSFERENCIA`: Realizam o débito apenas se houver saldo suficiente (`Balance >= Amount`). Caso contrário, é lançada uma `DomainException`.
+    - `DEPOSITO`: Incrementa o saldo da conta com o valor informado.
+    - `SAQUE` e `TRANSFERENCIA`: Realizam o débito apenas se houver saldo suficiente (`Balance >= Amount`). Caso contrário, é lançada uma `DomainException`.
+    - Tipo de transação fora do enum (ex.: `99`) também lança `DomainException`, sem alterar o saldo.
 - **Integridade cadastral:** CPF e e-mail são únicos no banco de dados. Tentativas de duplicidade disparam regras de negócio validadas pela aplicação.
 
 ---
@@ -62,11 +63,11 @@ O domínio escolhido é o de **Simulação Bancária**, cujo objetivo é estrutu
 A solução segue os preceitos da **Clean Architecture**, dividida nos seguintes projetos:
 
 - **`Bankly.Domain`:** Entidades (`Account`, `Transaction`, `User`, etc.), Enums, regras de negócio e validações de invariantes, sem dependência de frameworks externos de persistência.
-- **`Bankly.Application`:** DTOs (Requests e Responses com Data Annotations), interfaces de repositório (`IGenericRepository<T>`, `IAccountRepository`, etc.) e serviços de aplicação (`TransactionService`).
-- **`Bankly.Infrastructure`:** Contexto do Entity Framework Core (`BanklyContext`), mapeamento Fluent API, migrations e implementações concretas dos repositórios.
-- **`Bankly.Api`:** Controllers REST, injeção de dependências, tratamento global de exceções, observabilidade com logs estruturados e configuração de Health Checks.
+- **`Bankly.Application`:** DTOs (Requests e Responses com Data Annotations, incluindo o envelope `PagedResponse<T>`), interfaces de repositório (`IGenericRepository<T>`, `ITransactionRepository`, etc.) e serviços de aplicação (`TransactionService`, que valida `page`/`pageSize`).
+- **`Bankly.Infrastructure`:** Contexto do Entity Framework Core (`BanklyContext`), mapeamento Fluent API, migrations e implementações concretas dos repositórios (incluindo o `GetPaged` de `TransactionRepository`).
+- **`Bankly.Api`:** Controllers REST, versionamento de API, rate limit, injeção de dependências, tratamento global de exceções, logs estruturados, Swagger por versão e Health Checks.
 - **`Bankly.Domain.Tests`:** Projeto de testes de unidade para validação de regras de domínio (sem mock).
-- **`Bankly.Application.Tests`:** Projeto de testes de unidade para a camada de aplicação utilizando mocks (Moq).
+- **`Bankly.Application.Tests`:** Projeto de testes de unidade para a camada de aplicação.
 
 ---
 
@@ -80,32 +81,161 @@ A solução segue os preceitos da **Clean Architecture**, dividida nos seguintes
 ### Passos de Execução
 
 1. Clone o repositório em sua máquina:
-   ```bash
+```bash
    git clone <URL_DO_REPOSITORIO>
    cd Bankly
-   ```
+```
 
-2. Configure a connection string no arquivo `appsettings.Development.json` do projeto `Bankly.Api`:
+2. Configure a connection string no arquivo `appsettings.Development.json` do projeto `Bankly.Api` (use o seu RM e a sua senha; **não commite credenciais reais**):
 
-   ```json
+```json
    {
      "ConnectionStrings": {
        "DefaultConnection": "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=oracle.fiap.com.br)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=orcl)));User Id=SEU_RM;Password=SUA_SENHA;"
      }
    }
-   ```
+```
+
+Alternativa sem escrever a senha em arquivo do repositório (User Secrets):
+
+```bash
+   dotnet user-secrets init --project src/Bankly.Api
+   dotnet user-secrets set "ConnectionStrings:DefaultConnection" "<connection string>" --project src/Bankly.Api
+```
 
 3. Restaure as dependências e execute a aplicação:
 
-   ```bash
+```bash
    dotnet restore
-   dotnet run --project Bankly.Api
-   ```
+   dotnet run --project src/Bankly.Api
+```
 
 ### URLs de Acesso
 
-- **Swagger UI:** `https://localhost:7041/swagger` (ou `http://localhost:5136/swagger`)
-- **Health Check:** `https://localhost:7041/health` (ou `http://localhost:5136/health`)
+| Recurso | URL |
+| --- | --- |
+| Swagger UI | `https://localhost:7041/swagger` (ou `http://localhost:5136/swagger`) |
+| Health Check | `https://localhost:7041/health` |
+| **Listagem de transações v1 (deprecada)** | `https://localhost:7041/api/transaction?api-version=1.0` |
+| **Listagem de transações v2 (paginada)** | `https://localhost:7041/api/transaction?api-version=2.0` |
+| Listagem sem versão (cai na v2) | `https://localhost:7041/api/transaction` |
+
+---
+
+## 🔀 Versionamento de API (CP5)
+
+O recurso escolhido para versionar foi **Transaction** (`/api/transaction`), o que mais cresce no domínio. Os pacotes usados são `Asp.Versioning.Mvc` e `Asp.Versioning.Mvc.ApiExplorer`.
+
+### Configuração
+
+- `DefaultApiVersion = 2.0`
+- `AssumeDefaultVersionWhenUnspecified = true` (requisição sem versão cai na **2.0**)
+- `ReportApiVersions = true` (a resposta envia os headers `api-supported-versions` e `api-deprecated-versions`)
+- Leitores combinados (`ApiVersionReader.Combine`): query string `api-version` e header `X-Api-Version`.
+
+### As duas versões
+
+| Versão | Situação | `GET /api/transaction` devolve |
+| --- | --- | --- |
+| **1.0** | **Deprecada** (`[ApiVersion("1.0", Deprecated = true)]`) | Lista simples (contrato antigo do CP3), **sem paginação** |
+| **2.0** | Atual (padrão) | Envelope paginado (`PagedResponse`) |
+
+As duas versões chamam o **mesmo** `ITransactionService`. Nenhuma regra de negócio foi duplicada por versão. O `POST /api/transaction` responde nas duas versões (com ou sem versão informada).
+
+### Como informar a versão
+
+```http
+GET /api/transaction?api-version=1.0
+```
+
+```http
+GET /api/transaction
+X-Api-Version: 1.0
+```
+
+```http
+GET /api/transaction
+```
+
+O terceiro caso (sem versão) responde com a **v2** (envelope paginado). Não foi implementado o leitor por segmento de URL (item recomendado, não obrigatório).
+
+### Swagger por versão
+
+Em Development, o Swagger tem um documento por versão (`GroupNameFormat = 'v'VVVV`): **v1.0** e **v2.0**. A descrição do documento da v1 informa que a versão está **deprecada**. A UI permite alternar entre os dois grupos.
+
+### Demais controllers
+
+`User`, `Account`, `Card`, `Address` e `AccountType` **não foram versionados**. Para que continuassem aparecendo no Swagger e respondendo depois de ligar o ApiExplorer, receberam `[ApiVersionNeutral]`. Eles seguem chamáveis exatamente como no CP3/CP4.
+
+---
+
+## 📄 Paginação (CP5, somente na listagem v2)
+
+`GET /api/transaction?page=1&pageSize=20`
+
+| Parâmetro | Padrão | Regra |
+| --- | --- | --- |
+| `page` | `1` | inteiro ≥ 1 |
+| `pageSize` | `20` | inteiro de **1 a 100** (teto: **100**) |
+
+### Resposta 200 (envelope)
+
+```json
+{
+  "page": 1,
+  "pageSize": 20,
+  "totalItems": 137,
+  "totalPages": 7,
+  "items": [],
+  "hasPrevious": false,
+  "hasNext": true
+}
+```
+
+- `totalPages` = teto de `totalItems / pageSize`.
+- `page` além do total devolve **200** com `items` vazio (não é erro).
+- `page < 1` ou `pageSize` fora de 1–100 devolve **400** em `application/problem+json`, com a regra violada no campo `detail`. A validação está no `TransactionService` (Application), que lança `DomainException`, tratada pelo `GlobalExceptionHandler`. O serviço valida o `page` primeiro e para no primeiro erro.
+
+### Onde cada camada entra
+
+- **Controller:** lê `page` e `pageSize`.
+- **Application:** `TransactionService.GetPaged` valida o intervalo, pede a página ao repositório e monta o envelope (`PagedResponse<T>`, que fica em Application).
+- **Infrastructure:** `TransactionRepository.GetPaged` executa `Count` + `OrderBy` + `Skip` + `Take` no `IQueryable` e só então materializa com `ToList()`. A ordenação é por `CreatedAt` com `Id` como desempate, para a página 1 e a página 2 nunca se sobreporem.
+
+A **v1 não pagina**: preserva o contrato antigo (lista completa).
+
+---
+
+## 🚦 Rate Limit (CP5)
+
+Middleware nativo do ASP.NET Core (`Microsoft.AspNetCore.RateLimiting`), sem pacote de terceiros.
+
+| Item | Valor |
+| --- | --- |
+| Política | `escrita` (fixed window) |
+| Endpoint limitado | `POST /api/transaction` |
+| Limite | **10 requisições** |
+| Janela | **1 minuto** |
+| Fila | 0 (excedente é rejeitado na hora) |
+| Partição | Global (o contador é compartilhado por todos os clientes) |
+
+### O que acontece no estouro
+
+A 11ª requisição dentro da janela recebe:
+
+- **Status 429** (Too Many Requests);
+- header **`Retry-After`** com os segundos até poder tentar de novo;
+- corpo JSON (Problem Details) com `status: 429` e a mensagem do limite.
+
+### Ordem do pipeline
+
+`UseExceptionHandler()` → `UseHttpsRedirection()` → `UseRateLimiter()` → `UseAuthorization()` → `MapControllers()`.
+
+### `/health` fora do teto
+
+`GET /health` usa `DisableRateLimiting()`. Depois de estourar o `POST`, o `/health` continua respondendo **200**.
+
+> Observação: o limitador roda antes do controller, então toda requisição ao `POST` conta na janela, inclusive as que depois resultam em 400 ou 404.
 
 ---
 
@@ -129,33 +259,34 @@ A aplicação expõe a rota única **`GET /health`** configurada com formatador 
 A observabilidade foi implementada utilizando `ILogger<T>` nativo com correlação baseada no identificador único de requisição (`HttpContext.TraceIdentifier`):
 
 - **Fluxo de Escrita (`TransactionController`):**
-  - Log de início da operação com propriedades nomeadas: `{TraceId}`, `{AccountId}`, `{Amount}`, `{Type}`.
-  - Log de sucesso ao persistir: `{TraceId}`, `{TransactionId}`.
+    - Log de início da operação com propriedades nomeadas: `{TraceId}`, `{AccountId}`, `{Amount}`, `{Type}`.
+    - Log de sucesso ao persistir: `{TraceId}`, `{TransactionId}`.
 - **Tratamento de Exceções (`GlobalExceptionHandler`):**
-  - Captura qualquer erro não tratado e registra em nível `Error` contendo `{TraceId}`, `{Path}` e `{Message}`.
-  - Em ambiente de desenvolvimento, o `traceId` é injetado diretamente nas extensões do **`ProblemDetails`** (RFC 7807).
+    - Captura qualquer erro não tratado e registra em nível `Error` contendo `{TraceId}`, `{Path}` e `{Message}`.
+    - Em ambiente de desenvolvimento, o `traceId` é injetado diretamente nas extensões do **`ProblemDetails`** (RFC 7807).
 
 ---
 
 ## 🧪 Testes Automatizados (xUnit)
 
-A cobertura de testes automatizados contempla a base e o meio da pirâmide de testes:
-
-1. **`Bankly.Domain.Tests`** (Sem Mock):
-  - Testa regras reais de domínio na entidade `Account` (crédito, débito, saldo insuficiente) e `Transaction` (valor zerado ou negativo).
-  - Utiliza padrão **AAA** (Arrange, Act, Assert), métodos com **`[Fact]`** e cenários parametrizados com **`[Theory]`** + **`[InlineData]`**.
-2. **`Bankly.Application.Tests`** (Com Mock):
-  - Testa o serviço de aplicação `TransactionService` isolando as dependências de banco com **Moq** (`ITransactionRepository` e `IAccountRepository`).
-  - Valida que falha por dependência ausente lança `KeyNotFoundException` e **não** chama os métodos de persistência (`Times.Never`).
-  - Valida o caminho feliz persistindo a transação e atualizando a conta uma única vez (`Times.Once`).
+1. **`Bankly.Domain.Tests`** (sem mock):
+    - Testa regras reais de domínio na entidade `Account` (crédito, débito, saldo insuficiente, tipo de transação inválido) e `Transaction` (valor zerado ou negativo).
+    - Utiliza padrão **AAA** (Arrange, Act, Assert), métodos com **`[Fact]`** e cenários parametrizados com **`[Theory]`** + **`[InlineData]`**.
+2. **`Bankly.Application.Tests`**:
+    - Testa o `TransactionService` isolando as dependências de banco com **Moq** (`ITransactionRepository` e `IAccountRepository`): falha por conta inexistente lança `KeyNotFoundException` e não persiste nada (`Times.Never`); caminho feliz persiste uma vez (`Times.Once`).
+    - **CP5:** `TransactionServicePagingTests` cobre a paginação sem subir API nem banco, usando um repositório falso escrito à mão:
+        - `[Theory]` + `[InlineData]` para `page` / `pageSize` inválidos (`page` 0 ou negativo; `pageSize` 0, negativo ou acima de 100), que devem lançar `DomainException`;
+        - `[Theory]` para o intervalo válido e `[Fact]` para o cálculo de `totalPages`, `hasPrevious` e `hasNext`.
 
 ### Executando os Testes
 
-A partir da raiz da solução, execute o comando:
+A partir da raiz da solução, execute o comando (com a API parada):
 
 ```bash
 dotnet test
 ```
+
+Resultado atual: **23 testes, 0 falhas**.
 
 ---
 
@@ -163,20 +294,36 @@ dotnet test
 
 | **Exceção** | **Status HTTP** | **Descrição / Causa** |
 | --- | --- | --- |
-| `DomainException` | `400 Bad Request` | Violação de regra de negócio (saldo inicial negativo, saque sem saldo suficiente, valor inválido). |
+| `DomainException` | `400 Bad Request` | Violação de regra de negócio (saldo inicial negativo, saque sem saldo suficiente, valor inválido, tipo de transação inválido, `page`/`pageSize` fora da faixa). |
 | `KeyNotFoundException` | `404 Not Found` | Recurso solicitado não foi encontrado (conta inexistente na transação). |
 | `Exception` (demais erros) | `500 Internal Server Error` | Erros inesperados não tratados, mascarados no payload para proteção em produção. |
+
+O **429** não vem de exceção: é devolvido pelo middleware de rate limit (`OnRejected`), antes de chegar ao controller.
 
 ---
 
 ## 📁 Evidências de Testes e Operação (`/docs`)
 
-As capturas de tela comprovando o funcionamento da entrega encontram-se na pasta `/docs`:
+**CP4:**
 
 - `health-healthy.png` — Resposta 200 OK de `/health` com API e Oracle operacionais.
 - `health-unhealthy.png` — Resposta 503 Service Unavailable de `/health` simulando queda do banco.
 - `log-transacao-sucesso.png` — Console da API registrando logs estruturados com `traceId` no `POST /api/transaction`.
 - `log-exception-handler.png` — Console registrando log de erro no `GlobalExceptionHandler` com `traceId`.
 - `problemdetails-erro.png` — Resposta ProblemDetails contendo a extensão de correlação `traceId`.
-- `testes-xunit.png` — Execução do `dotnet test` com todos os testes passando em verde.
 - `swagger-endpoints-*.png` — Interface do Swagger documentando os endpoints da API.
+
+**CP5:**
+
+- `get-v1-lista.json` — `GET /api/transaction?api-version=1.0` (lista simples).
+- `get-v2-envelope.json` — `GET /api/transaction?api-version=2.0` (envelope paginado).
+- `headers-versao.png` — Headers `api-supported-versions` e `api-deprecated-versions` na resposta da v1.
+- `swagger-v1-deprecada.png` — Swagger na V1.0, com o aviso de versão deprecada na descrição do documento.
+- `swagger-v2-dropdown.png` — Swagger na V2.0, com o seletor aberto mostrando os dois grupos (V2.0 e V1.0).
+- `paginacao-400.png` — 400 para `page=0` (`pageSize=20`), com a regra do `page` no campo `detail`.
+- `paginacao-400-pagesize.png` — 400 para `page=1&pageSize=9999`, com a regra do `pageSize` (entre 1 e 100) no campo `detail`.
+- `paginacao-pagina-1.png` — Página 1 (`page=1&pageSize=2`), com `totalItems` e `totalPages` coerentes.
+- `paginacao-pagina-2.png` — Página 2 (`page=2&pageSize=2`), itens diferentes dos da página 1 (sem sobreposição).
+- `rate-limit-429.png` — 429 no `POST /api/transaction` com `Retry-After` e corpo JSON.
+- `health-apos-429.png` — `GET /health` respondendo 200 depois do estouro (prova de que o probe não divide o teto).
+- `testes-cp5-xunit.png` — Execução do `dotnet test` com os 23 testes passando em verde.
