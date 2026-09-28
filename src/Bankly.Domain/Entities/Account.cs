@@ -58,6 +58,9 @@ public class Account : BaseEntity
 
                 Balance -= transaction.Amount;
                 break;
+
+            default:
+                throw new DomainException("Tipo de transação inválido.");
         }
     }
 }
