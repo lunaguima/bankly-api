@@ -1,0 +1,52 @@
+{
+  "page": 1,
+  "pageSize": 20,
+  "totalItems": 6,
+  "totalPages": 1,
+  "items": [
+    {
+      "id": "b322c6ae-007b-4119-98f5-b0e49149e2dd",
+      "accountId": "fbaada4c-9d95-49fa-82a3-6022f18d50af",
+      "amount": 250,
+      "type": "DEPOSITO",
+      "createdAt": "2026-04-16T21:43:54.1617202"
+    },
+    {
+      "id": "308733af-db68-4fea-b671-d73df7e768ca",
+      "accountId": "66ef627f-0661-4574-9e38-78a10ee67190",
+      "amount": 250.5,
+      "type": "DEPOSITO",
+      "createdAt": "2026-08-05T01:12:31.028202"
+    },
+    {
+      "id": "1b36c570-b5dd-4e4c-9e90-2c189318f995",
+      "accountId": "dca6af7d-dd3a-4ea6-8e52-d50cc4fce16e",
+      "amount": 50,
+      "type": "DEPOSITO",
+      "createdAt": "2026-08-10T21:36:51.4857307"
+    },
+    {
+      "id": "6bf120aa-61c8-42ba-9d96-e43fe9476b91",
+      "accountId": "dca6af7d-dd3a-4ea6-8e52-d50cc4fce16e",
+      "amount": 30,
+      "type": "SAQUE",
+      "createdAt": "2026-08-10T21:40:39.5171655"
+    },
+    {
+      "id": "af6afd58-2eb7-4f9e-a14a-6cf0f01f8584",
+      "accountId": "fbaada4c-9d95-49fa-82a3-6022f18d50af",
+      "amount": 50,
+      "type": "DEPOSITO",
+      "createdAt": "2026-09-07T22:29:26.6651764"
+    },
+    {
+      "id": "9db0c8ab-c569-49e1-93d1-8c64088cd7bb",
+      "accountId": "2bf3f78f-cf02-4951-8c8b-d377e9c330ee",
+      "amount": 150,
+      "type": "DEPOSITO",
+      "createdAt": "2026-09-08T01:43:16.3378217"
+    }
+  ],
+  "hasPrevious": false,
+  "hasNext": false
+}
