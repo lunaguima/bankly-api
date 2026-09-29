@@ -269,13 +269,13 @@ A observabilidade foi implementada utilizando `ILogger<T>` nativo com correlaç�
 
 ## 🧪 Testes Automatizados (xUnit)
 
-1. **`Bankly.Domain.Tests`** (sem mock):
-    - Testa regras reais de domínio na entidade `Account` (crédito, débito, saldo insuficiente, tipo de transação inválido) e `Transaction` (valor zerado ou negativo).
+1. **`Bankly.Domain.Tests`** (sem mock, 11 testes):
+    - Testa regras reais de domínio na entidade `Account` (saldo inicial válido e negativo, saque com saldo suficiente, saque com saldo insuficiente, tipo de transação inválido) e `Transaction` (valor válido, zerado ou negativo).
     - Utiliza padrão **AAA** (Arrange, Act, Assert), métodos com **`[Fact]`** e cenários parametrizados com **`[Theory]`** + **`[InlineData]`**.
-2. **`Bankly.Application.Tests`**:
-    - Testa o `TransactionService` isolando as dependências de banco com **Moq** (`ITransactionRepository` e `IAccountRepository`): falha por conta inexistente lança `KeyNotFoundException` e não persiste nada (`Times.Never`); caminho feliz persiste uma vez (`Times.Once`).
-    - **CP5:** `TransactionServicePagingTests` cobre a paginação sem subir API nem banco, usando um repositório falso escrito à mão:
-        - `[Theory]` + `[InlineData]` para `page` / `pageSize` inválidos (`page` 0 ou negativo; `pageSize` 0, negativo ou acima de 100), que devem lançar `DomainException`;
+2. **`Bankly.Application.Tests`** (14 testes):
+    - **`TransactionServiceTests`** (CP4): testa o `TransactionService.Create` isolando as dependências de banco com **Moq** (`ITransactionRepository` e `IAccountRepository`): conta inexistente lança `KeyNotFoundException` e não persiste nada (`Times.Never`); caminho feliz atualiza o saldo e persiste uma vez (`Times.Once`).
+    - **`TransactionServicePagingTests`** (CP5): cobre a paginação sem subir API nem banco, usando um repositório falso escrito à mão:
+        - `[Theory]` + `[InlineData]` para `page` / `pageSize` inválidos (`page` 0 ou negativo; `pageSize` 0, negativo ou acima de 100), que devem lançar `DomainException` sem consultar o repositório;
         - `[Theory]` para o intervalo válido e `[Fact]` para o cálculo de `totalPages`, `hasPrevious` e `hasNext`.
 
 ### Executando os Testes
@@ -286,7 +286,7 @@ A partir da raiz da solução, execute o comando (com a API parada):
 dotnet test
 ```
 
-Resultado atual: **23 testes, 0 falhas**.
+Resultado atual: **25 testes (11 Domain + 14 Application), 0 falhas**.
 
 ---
 
@@ -326,4 +326,4 @@ O **429** não vem de exceção: é devolvido pelo middleware de rate limit (`On
 - `paginacao-pagina-2.png` — Página 2 (`page=2&pageSize=2`), itens diferentes dos da página 1 (sem sobreposição).
 - `rate-limit-429.png` — 429 no `POST /api/transaction` com `Retry-After` e corpo JSON.
 - `health-apos-429.png` — `GET /health` respondendo 200 depois do estouro (prova de que o probe não divide o teto).
-- `testes-cp5-xunit.png` — Execução do `dotnet test` com os 23 testes passando em verde.
+- `testes-cp5-xunit.png` — Execução do `dotnet test` com os 25 testes passando em verde.
