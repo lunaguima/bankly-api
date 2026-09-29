@@ -112,13 +112,15 @@ Alternativa sem escrever a senha em arquivo do repositório (User Secrets):
 
 ### URLs de Acesso
 
-| Recurso | URL |
-| --- | --- |
-| Swagger UI | `https://localhost:7186/swagger` (ou `http://localhost:5136/swagger`) |
-| Health Check | `https://localhost:7186/health` |
-| **Listagem de transações v1 (deprecada)** | `https://localhost:7186/api/transaction?api-version=1.0` |
-| **Listagem de transações v2 (paginada)** | `https://localhost:7186/api/transaction?api-version=2.0` |
-| Listagem sem versão (cai na v2) | `https://localhost:7186/api/transaction` |
+| Recurso | HTTP (perfil `http`) | HTTPS (perfil `https`) |
+| --- | --- | --- |
+| Swagger UI | `http://localhost:5136/swagger` | `https://localhost:7186/swagger` |
+| Health Check | `http://localhost:5136/health` | `https://localhost:7186/health` |
+| **Listagem de transações v1 (deprecada)** | `http://localhost:5136/api/transaction?api-version=1.0` | `https://localhost:7186/api/transaction?api-version=1.0` |
+| **Listagem de transações v2 (paginada)** | `http://localhost:5136/api/transaction?api-version=2.0` | `https://localhost:7186/api/transaction?api-version=2.0` |
+| Listagem sem versão (cai na v2) | `http://localhost:5136/api/transaction` | `https://localhost:7186/api/transaction` |
+
+> No HTTPS local, o navegador pode exibir aviso de certificado. Para confiar nele, rode `dotnet dev-certs https --trust`. As evidências em `/docs` foram geradas pela URL HTTP.
 
 ---
 
