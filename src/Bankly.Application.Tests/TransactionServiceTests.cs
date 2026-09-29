@@ -1,4 +1,5 @@
-﻿using Bankly.Application.Services;
+﻿using Bankly.Application.DTOs;
+using Bankly.Application.Services;
 using Bankly.Domain.Commom;
 using Bankly.Domain.Entities;
 using Bankly.Domain.Enums;
@@ -6,6 +7,46 @@ using Moq;
 using Xunit;
 
 namespace Bankly.Application.Tests;
+
+public class TransactionServiceTests
+{
+    [Fact]
+    public void Create_ContaInexistente_DeveLancarKeyNotFoundExceptionENaoPersistir()
+    {
+        // Arrange
+        var transactionRepo = new Mock<ITransactionRepository>();
+        var accountRepo = new Mock<IAccountRepository>();
+        accountRepo.Setup(r => r.GetById(It.IsAny<Guid>())).Returns((Account?)null);
+        var service = new TransactionService(transactionRepo.Object, accountRepo.Object);
+        var request = new TransactionRequest(Guid.NewGuid(), 50m, TransactionTypeEnum.DEPOSITO);
+
+        // Act & Assert
+        Assert.Throws<KeyNotFoundException>(() => service.Create(request));
+        transactionRepo.Verify(r => r.Add(It.IsAny<Transaction>()), Times.Never);
+        accountRepo.Verify(r => r.Update(It.IsAny<Account>()), Times.Never);
+    }
+
+    [Fact]
+    public void Create_ContaExistente_DevePersistirUmaVezEAtualizarSaldo()
+    {
+        // Arrange
+        var account = new Account(Guid.NewGuid(), Guid.NewGuid(), "0001", "12345-6", 100m);
+        var transactionRepo = new Mock<ITransactionRepository>();
+        var accountRepo = new Mock<IAccountRepository>();
+        accountRepo.Setup(r => r.GetById(account.Id)).Returns(account);
+        var service = new TransactionService(transactionRepo.Object, accountRepo.Object);
+        var request = new TransactionRequest(account.Id, 50m, TransactionTypeEnum.DEPOSITO);
+
+        // Act
+        var result = service.Create(request);
+
+        // Assert
+        Assert.Equal(150m, account.Balance);
+        Assert.Equal(50m, result.Amount);
+        transactionRepo.Verify(r => r.Add(It.IsAny<Transaction>()), Times.Once);
+        accountRepo.Verify(r => r.Update(account), Times.Once);
+    }
+}
 
 public class TransactionServicePagingTests
 {
